@@ -20,7 +20,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: process.env.FRONTEND_URL,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -42,7 +42,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:3000/auth/google/callback",
+      callbackURL: `${process.env.BACKEND_URL}/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       const email = profile.emails[0].value;
@@ -113,7 +113,7 @@ app.get("/auth/google/callback",
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
-    res.redirect(`http://localhost:5173/auth?token=${encodeURIComponent(token)}`);
+    res.redirect(`${process.env.FRONTEND_URL}/auth?token=${encodeURIComponent(token)}`);
   }
 );
 
