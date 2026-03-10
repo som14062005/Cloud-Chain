@@ -130,8 +130,4 @@ app.get("/logout", (req, res, next) => {
 
 app.use("/files", fileRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
 module.exports = { verifyJWT };
