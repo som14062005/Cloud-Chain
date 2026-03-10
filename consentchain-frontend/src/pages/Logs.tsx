@@ -87,7 +87,7 @@ export default function Logs() {
     (async () => {
       try {
         const token = getToken();
-        const res = await axios.get("http://localhost:3000/files/logs", {
+        const res = await axios.get("http://13.235.114.188:3000/files/logs", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setLogs(res.data.logs);

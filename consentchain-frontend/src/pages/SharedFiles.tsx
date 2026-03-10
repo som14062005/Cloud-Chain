@@ -32,8 +32,8 @@ function TextPreview({ url }: { url: string }) {
 // ── PREVIEW MODAL ──
 function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { onClose: () => void }) {
   const token = getToken();
-  const previewUrl = `http://localhost:3000/files/preview/${fileId}?token=${token}`;
-  const downloadUrl = `http://localhost:3000/files/download/${fileId}?token=${token}`;
+  const previewUrl = `http://13.235.114.188:3000/files/preview/${fileId}?token=${token}`;
+  const downloadUrl = `http://13.235.114.188:3000/files/download/${fileId}?token=${token}`;
 
   const renderPreview = () => {
     if (mimeType.startsWith("image/"))
@@ -181,7 +181,7 @@ export default function SharedFiles() {
   useEffect(() => {
     const token = getToken();
     if (!token) { removeToken(); navigate("/"); return; }
-    axios.get("http://localhost:3000/files/shared", {
+    axios.get("http://13.235.114.188:3000/files/shared", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setSharedFiles(res.data.sharedFiles);
@@ -195,7 +195,7 @@ export default function SharedFiles() {
     const token = getToken();
     if (!token) { removeToken(); navigate("/"); return; }
     setDownloadingId(fileId);
-    window.open(`http://localhost:3000/files/download/${fileId}?token=${token}`, "_blank");
+    window.open(`http://13.235.114.188:3000/files/download/${fileId}?token=${token}`, "_blank");
     setTimeout(() => {
       setDownloadingId(null);
       setJustDownloaded(fileId);

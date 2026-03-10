@@ -62,7 +62,7 @@ export default function Analytics() {
     (async () => {
       try {
         const token = getToken();
-        const res = await axios.get("http://localhost:3000/files/analytics/summary", {
+        const res = await axios.get("http://13.235.114.188:3000/files/analytics/summary", {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTotalDownloads(res.data.totalDownloads);

@@ -1,8 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const verifyJWT = require("../utils/auth");
-const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
+const AWS = require('aws-sdk');
 const axios = require("axios");  
 const { logAudit } = require("../utils/audit");
 const User = require("../models/User");
@@ -11,44 +10,55 @@ const Access = require("../models/Access");
 const Log = require("../models/Log");
 const AuditLog = require("../models/AuditLog");
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+const s3 = new AWS.S3({ 
+  region: process.env.AWS_REGION 
 });
 
 router.use(verifyJWT);
-const upload = multer({ dest: "uploads/" });
 
+router.post("/upload-request", async (req, res) => {
+  const { filename, contentType } = req.body;
+  if (!filename || !contentType) 
+    return res.status(400).json({ error: "Missing filename/contentType" });
+
+  const key = `consentchain/${Date.now()}-${filename}`;
+  
+  const url = s3.getSignedUrl('putObject', {
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: key,
+    ContentType: contentType,
+    Expires: 300 // 5 mins
+  });
+
+  res.json({ url, key }); // Frontend PUTs directly to S3
+});
 // UPLOAD
-router.post("/upload", upload.single("file"), async (req, res) => {
+router.post("/upload", verifyJWT, async (req, res) => {
   const email = req.user.email;
-  const file = req.file;
-  if (!file) return res.status(400).json({ error: "No file uploaded" });
+  const { key, filename, mimetype } = req.body; // From frontend after S3 upload
+  
+  if (!key || !filename) 
+    return res.status(400).json({ error: "Missing key/filename" });
 
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: "consentchain_files",
-      resource_type: "raw",
-    });
-
     const createdFile = await File.create({
-      name: file.originalname,
-      url: result.secure_url,
+      name: filename,
+      url: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`, // ✅ S3 URL
       ownerId: user._id,
-      publicId: result.public_id,
-      mimetype: file.mimetype,
+      s3Key: key, // ✅ Store S3 key (not publicId)
+      mimetype,
     });
 
-    res.json({ message: "File uploaded!", file: createdFile });
+    res.json({ message: "File registered!", file: createdFile });
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 // GRANT ACCESS
 router.post("/grant", async (req, res) => {
@@ -275,16 +285,18 @@ router.get("/download/:fileId", async (req, res) => {
 
     await Log.create({ fileId: file._id, userId: user._id });
 
-    // ✅ Fix Cloudinary URL + stream
-    const downloadUrl = file.url;
-    const mime = file.mimetype || "application/octet-stream";
+    // ✅ S3 pre-signed download URL (5 mins)
+    const url = s3.getSignedUrl('getObject', {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: file.s3Key,
+      Expires: 300
+    });
 
-    const response = await axios.get(downloadUrl, { responseType: "stream" });
-
-    res.setHeader("Content-Type", mime);
-    res.setHeader("Content-Disposition", `attachment; filename="${file.name}"`);
-    response.data.pipe(res);
-
+    res.json({ 
+      downloadUrl: url,
+      filename: file.name,
+      mimetype: file.mimetype 
+    });
   } catch (error) {
     console.error("Download error:", error);
     res.status(500).json({ error: "Server error" });

@@ -31,8 +31,8 @@ function TextPreview({ url }: { url: string }) {
 // ── PREVIEW MODAL ──
 function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { onClose: () => void }) {
   const token = getToken();
-  const previewUrl = `http://localhost:3000/files/preview/${fileId}?token=${token}`;
-  const downloadUrl = `http://localhost:3000/files/download/${fileId}?token=${token}`;
+  const previewUrl = `http://13.235.114.188:3000/files/preview/${fileId}?token=${token}`;
+  const downloadUrl = `http://13.235.114.188:3000/files/download/${fileId}?token=${token}`;
 
   const renderPreview = () => {
     if (mimeType.startsWith("image/"))
@@ -98,7 +98,7 @@ export default function MyFiles() {
   useEffect(() => {
     const token = getToken();
     if (!token) { removeToken(); navigate("/"); return; }
-    axios.get("http://localhost:3000/files/myfiles", {
+    axios.get("http://13.235.114.188:3000/files/myfiles", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setMyFiles(res.data.files);
