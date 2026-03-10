@@ -6,32 +6,33 @@ const passport = require("passport");
 const session = require("express-session");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const fileRoutes = require("./routes/files");
-const { PrismaClient } = require("@prisma/client");
+const User = require("./models/User");
 
-const prisma = new PrismaClient();
+// Connect to MongoDB
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const app = express();
 const PORT = 3000;
 
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: "http://localhost:5173",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
 
 app.use(express.json());
 
-app.use(
-  session({
-    secret: "secret-session-key",
-    resave: false,
-    saveUninitialized: false,
-  })
-);
+app.use(session({
+  secret: "secret-session-key",
+  resave: false,
+  saveUninitialized: false,
+}));
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -47,26 +48,26 @@ passport.use(
       const email = profile.emails[0].value;
       const name = profile.displayName;
 
-      let user = await prisma.user.findUnique({ where: { email } });
-
-      if (!user) {
-        user = await prisma.user.create({
-          data: { email, name },
-        });
+      try {
+        let user = await User.findOne({ email });
+        if (!user) {
+          user = await User.create({ email, name });
+        }
+        return done(null, user);
+      } catch (err) {
+        return done(err, null);
       }
-
-      return done(null, user);
     }
   )
 );
 
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  done(null, user._id); // MongoDB uses _id
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await User.findById(id);
     done(null, user);
   } catch (err) {
     done(err, null);
@@ -99,28 +100,20 @@ app.get("/", (req, res) => {
   res.send("<a href='/auth/google'>Login with Google</a>");
 });
 
-app.get(
-  "/auth/google",
+app.get("/auth/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
-app.get(
-  "/auth/google/callback",
+app.get("/auth/google/callback",
   passport.authenticate("google", { failureRedirect: "/" }),
   (req, res) => {
     const user = req.user;
-    const payload = {
-      email: user.email,
-      name: user.name,
-    };
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-
-    res.redirect(
-      `http://localhost:5173/auth?token=${encodeURIComponent(token)}`
+    const token = jwt.sign(
+      { email: user.email, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
     );
+    res.redirect(`http://localhost:5173/auth?token=${encodeURIComponent(token)}`);
   }
 );
 

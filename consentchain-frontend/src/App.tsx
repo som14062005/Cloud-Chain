@@ -8,6 +8,7 @@ import MyFiles from "./pages/MyFiles";
 import Login from "./pages/Login";
 import "./styles/background.css";
 import Analytics from "./pages/Analytics";
+import GrantedAccess from "./pages/GrantedAccess";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/myfiles" element={<MyFiles />} />
         <Route path="/" element={<Login />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/grantaccess" element={<GrantedAccess />} />
       </Routes>
     </Router>
   );

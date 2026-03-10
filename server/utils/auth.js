@@ -3,7 +3,8 @@ const jwt = require("jsonwebtoken");
 function authenticateJWT(req, res, next) {
   // Check token from header or query string
   const authHeader = req.headers.authorization;
-  const token = authHeader?.split(" ")[1] || req.query.token;
+  const token = authHeader?.split(" ")[1] || req.query.token; // already there
+
 
   if (!token) {
     return res.status(401).json({ error: "Token not provided" });
