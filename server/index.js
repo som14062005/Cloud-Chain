@@ -130,4 +130,8 @@ app.get("/logout", (req, res, next) => {
 
 app.use("/files", fileRoutes);
 
+app.listen(PORT, () => {
+  console.log(`Server running on ${process.env.BACKEND_URL}`);
+});
+
 module.exports = { verifyJWT };
