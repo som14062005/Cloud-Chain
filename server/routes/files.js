@@ -45,12 +45,13 @@ router.post("/upload", verifyJWT, async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const createdFile = await File.create({
-      name: filename,
-      url: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`, // ✅ S3 URL
-      ownerId: user._id,
-      s3Key: key, // ✅ Store S3 key (not publicId)
-      mimetype,
-    });
+  name: filename,
+  url: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,  // ✅ FIXED
+  ownerId: user._id,
+  s3Key: key,
+  mimetype,
+});
+
 
     res.json({ message: "File registered!", file: createdFile });
   } catch (error) {
