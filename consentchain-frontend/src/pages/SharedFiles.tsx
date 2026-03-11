@@ -32,8 +32,8 @@ function TextPreview({ url }: { url: string }) {
 // ── PREVIEW MODAL ──
 function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { onClose: () => void }) {
   const token = getToken();
-  const previewUrl = `http://3.7.199.245:3000/files/preview/${fileId}?token=${token}`;
-  const downloadUrl = `http://3.7.199.245:3000/files/download/${fileId}?token=${token}`;
+  const previewUrl = `${import.meta.env.VITE_API_URL}/files/preview/${fileId}?token=${token}`;
+  const downloadUrl = `${import.meta.env.VITE_API_URL}/files/download/${fileId}?token=${token}`;
 
   const renderPreview = () => {
     if (mimeType.startsWith("image/"))
@@ -181,7 +181,7 @@ export default function SharedFiles() {
   useEffect(() => {
     const token = getToken();
     if (!token) { removeToken(); navigate("/"); return; }
-    axios.get("http://3.7.199.245:3000/files/shared", {
+    axios.get(`${import.meta.env.VITE_API_URL}/files/shared`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setSharedFiles(res.data.sharedFiles);
@@ -196,7 +196,7 @@ export default function SharedFiles() {
   if (!token) { removeToken(); navigate("/"); return; }
   try {
     const { data } = await axios.get(
-      `http://3.7.199.245:3000/files/download/${fileId}`,
+      `${import.meta.env.VITE_API_URL}/files/download/${fileId}`,
       { headers: { Authorization: `Bearer ${token}` }}
     );
     window.open(data.downloadUrl, "_blank"); // ✅ Direct S3 presigned URL

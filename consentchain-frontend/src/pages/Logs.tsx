@@ -87,7 +87,7 @@ export default function Logs() {
     (async () => {
       try {
         const token = getToken();
-        const res = await axios.get("http://3.7.199.245:3000/files/logs", {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/files/logs`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setLogs(res.data.logs);

@@ -1,9 +1,5 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+// <reference types="vite/client" />
 
-export default defineConfig({
-  plugins: [react()],
-});
 interface ImportMetaEnv {
   readonly VITE_API_URL: string
 }

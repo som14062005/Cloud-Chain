@@ -63,7 +63,7 @@ export default function Analytics() {
     (async () => {
       try {
         const token = getToken();
-        const res = await axios.get(`${apiUrl}/files/analytics/summary`, {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/files/analytics/summary`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTotalDownloads(res.data.totalDownloads);

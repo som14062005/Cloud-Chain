@@ -63,7 +63,7 @@ const FileLogs = () => {
   const fetchLogs = async () => {
     try {
       const token = getToken();
-      const res = await axios.get(`http://3.7.199.245:3000/files/logs/${fileId}`, {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL}/files/logs/${fileId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setLogs(res.data.logs);
@@ -88,7 +88,7 @@ const FileLogs = () => {
     setRevoking(toEmail);
     try {
       const token = getToken();
-      await axios.post("http://3.7.199.245:3000/files/revoke",
+      await axios.post(`${import.meta.env.VITE_API_URL}/files/revoke`,
         { toEmail, fileId },
         { headers: { Authorization: `Bearer ${token}` } }
       );

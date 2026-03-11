@@ -37,7 +37,7 @@ function Login() {
             {/* Google Sign In Button */}
             <button
               onClick={() =>
-                (window.location.href = "http://3.7.199.245:3000/auth/google")
+                (window.location.href = `${import.meta.env.VITE_API_URL}/auth/google`)
               }
               className="flex items-center gap-3 !bg-white text-black font-medium px-6 py-3 rounded-full shadow hover:bg-gray-200 transition"
             >
