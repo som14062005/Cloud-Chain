@@ -53,7 +53,7 @@ router.post("/upload", verifyJWT, async (req, res) => {
   ownerId: user._id,
   s3Key: key,
   mimetype,
-});
+ });
 
 
     res.json({ message: "File registered!", file: createdFile });
