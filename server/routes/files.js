@@ -223,6 +223,7 @@ router.get("/logs/:fileId", async (req, res) => {
   }
 });
 // PREVIEW — streams file inline (no download, no audit log)
+// PREVIEW
 router.get("/preview/:fileId", async (req, res) => {
   const email = req.user.email;
   const { fileId } = req.params;
@@ -240,15 +241,23 @@ router.get("/preview/:fileId", async (req, res) => {
     if (access?.expiryTime && new Date() > new Date(access.expiryTime))
       return res.status(403).json({ error: "Access expired" });
 
-    const streamUrl = file.previewUrl || file.url;
-    const mime = file.previewUrl ? "application/pdf" : (file.mimetype || "application/octet-stream");
+    // ✅ Generate presigned URL
+    const signedUrl = s3.getSignedUrl('getObject', {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: file.s3Key,
+      Expires: 300
+    });
 
-    const response = await axios.get(streamUrl, { responseType: "stream" });
-
+    // ✅ Proxy stream to browser (fixes iframe CORS)
+    const mime = file.mimetype || "application/octet-stream";
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Disposition", `inline; filename="${file.name}"`);
-    // ✅ X-Frame-Options line REMOVED
-    response.data.pipe(res);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+
+    const https = require("https");
+    https.get(signedUrl, (s3Stream) => {
+      s3Stream.pipe(res);
+    }).on("error", () => res.status(500).json({ error: "Preview failed" }));
 
   } catch (err) {
     console.error("Preview error:", err);
