@@ -13,24 +13,19 @@ const User = require("./models/User");
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-
+const app = express();
+const PORT = 3000;
 // REPLACE app.listen:
 const options = {
   key: fs.readFileSync(path.join(__dirname, 'certs/server.key')),
   cert: fs.readFileSync(path.join(__dirname, 'certs/server.crt'))
 };
 
-https.createServer(options, app).listen(PORT, () => {
-  console.log(`HTTPS Server: https://3.7.199.245.nip.io:${PORT}`);
-});
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
-
-const app = express();
-const PORT = 3000;
 
 app.use(cors({
   origin: ['https://d2n2fkydruy84k.cloudfront.net', 'http://3.7.199.245', 'http://3.7.199.245.nip.io'],  
@@ -40,6 +35,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
 
 app.use(session({
   secret: "secret-session-key",
@@ -142,9 +138,8 @@ app.get("/logout", (req, res, next) => {
 });
 
 app.use("/files", fileRoutes);
-
-app.listen(PORT, () => {
-  console.log(`Server running on ${process.env.BACKEND_URL}`);
+https.createServer(options, app).listen(PORT, () => {
+  console.log(`HTTPS Server: https://3.7.199.245.nip.io:${PORT}`);
 });
 
 module.exports = { verifyJWT };
