@@ -20,7 +20,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: ['http://localhost:5173', 'http://13.235.114.188', 'http://13.235.114.188.nip.io'],  
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,

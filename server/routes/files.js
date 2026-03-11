@@ -35,6 +35,9 @@ router.post("/upload-request", async (req, res) => {
 // UPLOAD
 router.post("/upload", verifyJWT, async (req, res) => {
   const email = req.user.email;
+  if (!req.body || !req.body.key) {
+    return res.status(400).json({ error: "Missing body — send JSON with key/filename/mimetype" });
+  }
   const { key, filename, mimetype } = req.body; // From frontend after S3 upload
   
   if (!key || !filename) 
