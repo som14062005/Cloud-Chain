@@ -37,8 +37,8 @@ function TextPreview({ url }: { url: string }) {
 // ── PREVIEW MODAL ──
 function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { onClose: () => void }) {
   const token = getToken();
-  const previewUrl = `http://13.235.114.188:3000/files/preview/${fileId}?token=${token}`;
-  const downloadUrl = `http://13.235.114.188:3000/files/download/${fileId}?token=${token}`;
+  const previewUrl = `http://3.7.199.245:3000/files/preview/${fileId}?token=${token}`;
+  const downloadUrl = `http://3.7.199.245:3000/files/download/${fileId}?token=${token}`;
 
   const renderPreview = () => {
     if (mimeType.startsWith("image/"))
@@ -90,16 +90,6 @@ function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { o
   );
 }
 
-// ── THEME TOGGLE ──
-function ThemeToggle({ dark, toggle }: { dark: boolean; toggle: () => void }) {
-  return (
-    <button onClick={toggle}
-      className={`w-10 h-10 rounded-xl border flex items-center justify-center text-lg transition
-        ${dark ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-black/5 border-black/10 hover:bg-black/10"}`}>
-      {dark ? "☀️" : "🌙"}
-    </button>
-  );
-}
 
 // ── MAIN DASHBOARD ──
 function Dashboard() {
@@ -125,11 +115,11 @@ function Dashboard() {
   useEffect(() => {
     const token = getToken();
     if (!token) { removeToken(); navigate("/"); return; }
-    axios.get("http://13.235.114.188:3000/files/shared", {
+    axios.get("http://3.7.199.245:3000/files/shared", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setSharedFiles(res.data.sharedFiles))
       .catch((err) => { if (err.response?.status === 401) { removeToken(); navigate("/"); } });
-    axios.get("http://13.235.114.188:3000/files/myfiles", {
+    axios.get("http://3.7.199.245:3000/files/myfiles", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setMyFiles(res.data.files);
@@ -139,7 +129,7 @@ function Dashboard() {
 
   const refreshFiles = () => {
     const token = getToken();
-    axios.get("http://13.235.114.188:3000/files/myfiles", {
+    axios.get("http://3.7.199.245:3000/files/myfiles", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setMyFiles(res.data.files);
@@ -147,19 +137,51 @@ function Dashboard() {
     });
   };
 
-  const handleUpload = () => {
-    const token = getToken();
-    if (!token) { removeToken(); navigate("/"); return; }
-    if (!file) { alert("Please select a file."); return; }
-    const formData = new FormData();
-    formData.append("file", file);
-    setUploading(true);
-    axios.post("http://13.235.114.188:3000/files/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
-    }).then(() => { alert("Uploaded!"); setFile(null); refreshFiles(); })
-      .catch((err) => { if (err.response?.status === 401) { removeToken(); navigate("/"); } else alert("Upload failed."); })
-      .finally(() => setUploading(false));
-  };
+  
+
+const handleUpload = async () => {
+  const token = getToken();
+  if (!token) { removeToken(); navigate("/"); return; }
+  if (!file) { alert("Please select a file."); return; }
+
+  setUploading(true);
+  try {
+    // Step 1: Get presigned URL from backend
+    const { data: { url, key } } = await axios.post(
+      "http://3.7.199.245:3000/files/upload-request",
+      { filename: file.name, contentType: file.type },
+      { headers: { Authorization: `Bearer ${token}` }}
+    );
+
+    // Step 2: PUT file directly to S3
+    await axios.put(url, file, {
+      headers: { "Content-Type": file.type }
+    });
+
+    // Step 3: Register file in DB
+    await axios.post(
+      "http://3.7.199.245:3000/files/upload",
+      { key, filename: file.name, mimetype: file.type },
+      { headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"  // ✅ JSON not multipart
+      }}
+    );
+
+    alert("Uploaded!");
+    setFile(null);
+    refreshFiles();
+  }   catch (err) {
+    if (axios.isAxiosError(err)) {
+      if (err.response?.status === 401) { removeToken(); navigate("/"); }
+      else alert("Upload failed: " + err.message);
+    } else {
+      alert("Upload failed: Unknown error");
+    }
+  }
+
+};
+
 
   const handleGrantAccess = () => {
     const token = getToken();
@@ -174,7 +196,7 @@ function Dashboard() {
       expiryTime = new Date(customExpiry).toISOString();
     }
     setGranting(true);
-    axios.post("http://13.235.114.188:3000/files/grant",
+    axios.post("http://3.7.199.245:3000/files/grant",
       { fileId: selectedFileId, toEmail, expiryTime },
       { headers: { Authorization: `Bearer ${token}` } }
     ).then(() => { alert("Access granted!"); setToEmail(""); setExpiryOption(""); setCustomExpiry(""); })
@@ -182,11 +204,21 @@ function Dashboard() {
       .finally(() => setGranting(false));
   };
 
-  const handleDownload = (fileId: string) => {
-    const token = getToken();
-    if (!token) { removeToken(); navigate("/"); return; }
-    window.open(`http://13.235.114.188:3000/files/download/${fileId}?token=${token}`, "_blank");
-  };
+  const handleDownload = async (fileId: string) => {
+  const token = getToken();
+  if (!token) { removeToken(); navigate("/"); return; }
+  try {
+    const { data } = await axios.get(
+      `http://3.7.199.245:3000/files/download/${fileId}`,
+      { headers: { Authorization: `Bearer ${token}` }}
+    );
+    window.open(data.downloadUrl, "_blank"); // ✅ Direct S3 presigned URL
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      removeToken(); navigate("/");
+    } else alert("Download failed");
+  }
+};
 
   // Theme-aware class helpers
   const bg = dark ? "bg-[#080808]" : "bg-[#f4f4f5]";
@@ -255,7 +287,6 @@ function Dashboard() {
             <h1 className="text-3xl font-clash font-semibold">Dashboard</h1>
             <p className={`text-sm font-mono mt-1 ${subtext}`}>Manage your files and access controls</p>
           </div>
-          <ThemeToggle dark={dark} toggle={() => setDark(!dark)} />
         </div>
 
         {/* Stats */}

@@ -54,7 +54,7 @@ export default function GrantedAccess() {
   const fetchGranted = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("http://13.235.114.188:3000/files/granted", {
+      const res = await axios.get("http://3.7.199.245:3000/files/granted", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setGranted(res.data.granted);
@@ -86,7 +86,7 @@ export default function GrantedAccess() {
     setRevoking(true);
     try {
       await axios.post(
-        "http://13.235.114.188:3000/files/revoke",
+        "http://3.7.199.245:3000/files/revoke",
         { fileId: revokingAccess.fileId, toEmail: revokingAccess.sharedWith },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -115,7 +115,7 @@ export default function GrantedAccess() {
     setUpdating(true);
     try {
       const res = await axios.post(
-        "http://13.235.114.188:3000/files/update-expiry",
+        "http://3.7.199.245:3000/files/update-expiry",
         { accessId: editingAccess.accessId, expiryTime: noExpiry ? null : new Date(newExpiry).toISOString() },
         { headers: { Authorization: `Bearer ${token}` } }
       );

@@ -32,8 +32,8 @@ function TextPreview({ url }: { url: string }) {
 // ── PREVIEW MODAL ──
 function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { onClose: () => void }) {
   const token = getToken();
-  const previewUrl = `http://13.235.114.188:3000/files/preview/${fileId}?token=${token}`;
-  const downloadUrl = `http://13.235.114.188:3000/files/download/${fileId}?token=${token}`;
+  const previewUrl = `http://3.7.199.245:3000/files/preview/${fileId}?token=${token}`;
+  const downloadUrl = `http://3.7.199.245:3000/files/download/${fileId}?token=${token}`;
 
   const renderPreview = () => {
     if (mimeType.startsWith("image/"))
@@ -181,7 +181,7 @@ export default function SharedFiles() {
   useEffect(() => {
     const token = getToken();
     if (!token) { removeToken(); navigate("/"); return; }
-    axios.get("http://13.235.114.188:3000/files/shared", {
+    axios.get("http://3.7.199.245:3000/files/shared", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setSharedFiles(res.data.sharedFiles);
@@ -191,17 +191,21 @@ export default function SharedFiles() {
     }).finally(() => setLoading(false));
   }, [navigate]);
 
-  const handleDownload = (fileId: string) => {
-    const token = getToken();
-    if (!token) { removeToken(); navigate("/"); return; }
-    setDownloadingId(fileId);
-    window.open(`http://13.235.114.188:3000/files/download/${fileId}?token=${token}`, "_blank");
-    setTimeout(() => {
-      setDownloadingId(null);
-      setJustDownloaded(fileId);
-      setTimeout(() => setJustDownloaded(null), 2000);
-    }, 800);
-  };
+    const handleDownload = async (fileId: string) => {
+  const token = getToken();
+  if (!token) { removeToken(); navigate("/"); return; }
+  try {
+    const { data } = await axios.get(
+      `http://3.7.199.245:3000/files/download/${fileId}`,
+      { headers: { Authorization: `Bearer ${token}` }}
+    );
+    window.open(data.downloadUrl, "_blank"); // ✅ Direct S3 presigned URL
+  } catch (err) {
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      removeToken(); navigate("/");
+    } else alert("Download failed");
+  }
+};
 
   const getMimeFromExt = (ext: string): string => {
     const map: Record<string, string> = {
