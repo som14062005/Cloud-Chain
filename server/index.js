@@ -20,7 +20,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://3.7.199.245', 'http://3.7.199.245.nip.io'],  
+  origin: ['https://d2n2fkydruy84k.cloudfront.net', 'http://3.7.199.245', 'http://3.7.199.245.nip.io'],  
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
