@@ -139,7 +139,7 @@ app.get("/logout", (req, res, next) => {
 
 app.use("/files", fileRoutes);
 https.createServer(options, app).listen(PORT, () => {
-  console.log(`HTTPS Server: https://3.7.199.245.nip.io:${PORT}`);
+  console.log(`HTTPS Server: https://3.7.199.245.nip.io:3000`);
 });
 
 module.exports = { verifyJWT };
