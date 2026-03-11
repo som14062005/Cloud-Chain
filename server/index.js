@@ -10,6 +10,19 @@ const mongoose = require("mongoose");
 const fileRoutes = require("./routes/files");
 const User = require("./models/User");
 
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
+
+// REPLACE app.listen:
+const options = {
+  key: fs.readFileSync(path.join(__dirname, 'certs/server.key')),
+  cert: fs.readFileSync(path.join(__dirname, 'certs/server.crt'))
+};
+
+https.createServer(options, app).listen(PORT, () => {
+  console.log(`HTTPS Server: https://3.7.199.245.nip.io:${PORT}`);
+});
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGODB_URI)

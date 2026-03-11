@@ -8,9 +8,10 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, LineChart, Line,
 } from "recharts";
 
+
 type AccessData = { fileName: string; downloadCount: number };
 type PatternData = { date: string; count: number };
-
+const apiUrl = import.meta.env.VITE_API_URL;
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function Analytics() {
     (async () => {
       try {
         const token = getToken();
-        const res = await axios.get("http://3.7.199.245:3000/files/analytics/summary", {
+        const res = await axios.get(`${apiUrl}/files/analytics/summary`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTotalDownloads(res.data.totalDownloads);
