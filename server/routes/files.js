@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const verifyJWT = require("../utils/auth");
 const AWS = require('aws-sdk');
-const axios = require("axios");  
+const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const { logAudit } = require("../utils/audit");
 const User = require("../models/User");
 const File = require("../models/File");
@@ -10,37 +10,52 @@ const Access = require("../models/Access");
 const Log = require("../models/Log");
 const AuditLog = require("../models/AuditLog");
 
-const s3 = new AWS.S3({ 
-  region: process.env.AWS_REGION 
-});
+const s3 = new AWS.S3({ region: process.env.AWS_REGION });
+const ses = new SESClient({ region: process.env.AWS_REGION });
+
+// ─── SES Helper ───────────────────────────────────────────────────────────────
+const sendEmail = async ({ to, subject, body }) => {
+  try {
+    await ses.send(new SendEmailCommand({
+      Source: process.env.SES_FROM_EMAIL,
+      Destination: { ToAddresses: [to] },
+      Message: {
+        Subject: { Data: subject },
+        Body: { Text: { Data: body } }
+      }
+    }));
+  } catch (err) {
+    console.error("SES send error:", err.message); // Non-blocking
+  }
+};
 
 router.use(verifyJWT);
 
+// ─── UPLOAD REQUEST ───────────────────────────────────────────────────────────
 router.post("/upload-request", async (req, res) => {
   const { filename, contentType } = req.body;
-  if (!filename || !contentType) 
+  if (!filename || !contentType)
     return res.status(400).json({ error: "Missing filename/contentType" });
 
   const key = `consentchain/${Date.now()}-${filename}`;
-  
   const url = s3.getSignedUrl('putObject', {
     Bucket: process.env.AWS_S3_BUCKET,
     Key: key,
     ContentType: contentType,
-    Expires: 300 // 5 mins
+    Expires: 300
   });
 
-  res.json({ url, key }); // Frontend PUTs directly to S3
+  res.json({ url, key });
 });
-// UPLOAD
+
+// ─── UPLOAD ───────────────────────────────────────────────────────────────────
 router.post("/upload", verifyJWT, async (req, res) => {
   const email = req.user.email;
-  if (!req.body || !req.body.key) {
+  if (!req.body || !req.body.key)
     return res.status(400).json({ error: "Missing body — send JSON with key/filename/mimetype" });
-  }
-  const { key, filename, mimetype } = req.body; // From frontend after S3 upload
-  
-  if (!key || !filename) 
+
+  const { key, filename, mimetype } = req.body;
+  if (!key || !filename)
     return res.status(400).json({ error: "Missing key/filename" });
 
   try {
@@ -48,13 +63,12 @@ router.post("/upload", verifyJWT, async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const createdFile = await File.create({
-  name: filename,
-  url: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,  // ✅ FIXED
-  ownerId: user._id,
-  s3Key: key,
-  mimetype,
- });
-
+      name: filename,
+      url: `https://${process.env.AWS_S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
+      ownerId: user._id,
+      s3Key: key,
+      mimetype,
+    });
 
     res.json({ message: "File registered!", file: createdFile });
   } catch (error) {
@@ -63,15 +77,16 @@ router.post("/upload", verifyJWT, async (req, res) => {
   }
 });
 
-
-// GRANT ACCESS
+// ─── GRANT ACCESS ─────────────────────────────────────────────────────────────
 router.post("/grant", async (req, res) => {
   const { toEmail, fileId, expiryTime } = req.body;
   const fromEmail = req.user.email;
+
   if (!fileId || !toEmail)
     return res.status(400).json({ error: "Missing toEmail or fileId" });
   if (toEmail.toLowerCase() === fromEmail.toLowerCase())
     return res.status(400).json({ error: "You cannot grant access to yourself" });
+
   try {
     const fromUser = await User.findOne({ email: fromEmail });
     const toUser = await User.findOne({ email: toEmail });
@@ -100,6 +115,18 @@ router.post("/grant", async (req, res) => {
     });
 
     await logAudit(fromUser._id, fileId, "granted", toUser._id);
+
+    // ✅ SES: Notify recipient
+    const expiryNote = expiryTime
+      ? `\nAccess expires: ${new Date(expiryTime).toLocaleString()}`
+      : "\nAccess: Permanent (no expiry)";
+
+    await sendEmail({
+      to: toUser.email,
+      subject: `ConsentChain: Access Granted — ${file.name}`,
+      body: `Hi ${toUser.name || toUser.email},\n\n${fromUser.name || fromUser.email} has granted you access to the file: "${file.name}".${expiryNote}\n\nLog in to ConsentChain to view it.\n\n— ConsentChain`
+    });
+
     res.json({ message: `Access granted to ${toEmail} for file ${file.name}` });
   } catch (error) {
     console.error("Grant access error:", error);
@@ -107,10 +134,11 @@ router.post("/grant", async (req, res) => {
   }
 });
 
-// REVOKE ACCESS
+// ─── REVOKE ACCESS ────────────────────────────────────────────────────────────
 router.post("/revoke", async (req, res) => {
   const { toEmail, fileId } = req.body;
   const fromEmail = req.user.email;
+
   if (!fileId || !toEmail)
     return res.status(400).json({ error: "Missing toEmail or fileId" });
 
@@ -138,6 +166,14 @@ router.post("/revoke", async (req, res) => {
 
     await Access.findByIdAndDelete(accessRecord._id);
     await logAudit(fromUser._id, fileId, "revoked", toUser._id);
+
+    // ✅ SES: Notify recipient
+    await sendEmail({
+      to: toUser.email,
+      subject: `ConsentChain: Access Revoked — ${file.name}`,
+      body: `Hi ${toUser.name || toUser.email},\n\n${fromUser.name || fromUser.email} has revoked your access to the file: "${file.name}".\n\nYou no longer have access to this file.\n\n— ConsentChain`
+    });
+
     res.json({ message: `Access revoked from ${toEmail}` });
   } catch (error) {
     console.error("Revoke access error:", error);
@@ -145,22 +181,18 @@ router.post("/revoke", async (req, res) => {
   }
 });
 
-// GLOBAL LOGS — all download logs for files owned by this user
+// ─── GLOBAL LOGS ──────────────────────────────────────────────────────────────
 router.get("/logs", async (req, res) => {
   const email = req.user.email;
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Get all files owned by this user
     const files = await File.find({ ownerId: user._id }, "_id name");
     const fileIds = files.map((f) => f._id);
-
-    // Build a fileId → fileName map for quick lookup
     const fileMap = {};
     files.forEach((f) => { fileMap[String(f._id)] = f.name; });
 
-    // Fetch all download logs for those files
     const logs = await Log.find({ fileId: { $in: fileIds } })
       .populate("userId", "email")
       .sort({ timestamp: -1 });
@@ -178,8 +210,7 @@ router.get("/logs", async (req, res) => {
   }
 });
 
-
-// LOGS
+// ─── LOGS BY FILE ─────────────────────────────────────────────────────────────
 router.get("/logs/:fileId", async (req, res) => {
   const { fileId } = req.params;
   const email = req.user.email;
@@ -222,8 +253,8 @@ router.get("/logs/:fileId", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
-// PREVIEW — streams file inline (no download, no audit log)
-// PREVIEW
+
+// ─── PREVIEW ──────────────────────────────────────────────────────────────────
 router.get("/preview/:fileId", async (req, res) => {
   const email = req.user.email;
   const { fileId } = req.params;
@@ -241,14 +272,12 @@ router.get("/preview/:fileId", async (req, res) => {
     if (access?.expiryTime && new Date() > new Date(access.expiryTime))
       return res.status(403).json({ error: "Access expired" });
 
-    // ✅ Generate presigned URL
     const signedUrl = s3.getSignedUrl('getObject', {
       Bucket: process.env.AWS_S3_BUCKET,
       Key: file.s3Key,
       Expires: 300
     });
 
-    // ✅ Proxy stream to browser (fixes iframe CORS)
     const mime = file.mimetype || "application/octet-stream";
     res.setHeader("Content-Type", mime);
     res.setHeader("Content-Disposition", `inline; filename="${file.name}"`);
@@ -265,9 +294,7 @@ router.get("/preview/:fileId", async (req, res) => {
   }
 });
 
-
-// DOWNLOAD
-// DOWNLOAD
+// ─── DOWNLOAD ─────────────────────────────────────────────────────────────────
 router.get("/download/:fileId", async (req, res) => {
   const email = req.user.email;
   const { fileId } = req.params;
@@ -293,22 +320,44 @@ router.get("/download/:fileId", async (req, res) => {
         toUser: user._id,
         timestamp: new Date(),
       });
+
+      // ✅ SES: Notify owner of expired access attempt
+      const owner = await User.findById(file.ownerId);
+      if (owner) {
+        await sendEmail({
+          to: owner.email,
+          subject: `ConsentChain: Expired Access Attempt — ${file.name}`,
+          body: `Hi ${owner.name || owner.email},\n\n${user.name || user.email} tried to access "${file.name}" but their access has expired.\n\n— ConsentChain`
+        });
+      }
+
       return res.status(403).json({ error: "Access expired" });
     }
 
     await Log.create({ fileId: file._id, userId: user._id });
 
-    // ✅ S3 pre-signed download URL (5 mins)
+    // ✅ SES: Notify owner of download (only if downloader is not owner)
+    if (!isOwner) {
+      const owner = await User.findById(file.ownerId);
+      if (owner) {
+        await sendEmail({
+          to: owner.email,
+          subject: `ConsentChain: File Downloaded — ${file.name}`,
+          body: `Hi ${owner.name || owner.email},\n\n${user.name || user.email} just downloaded your file: "${file.name}".\n\nLog in to ConsentChain to view full activity logs.\n\n— ConsentChain`
+        });
+      }
+    }
+
     const url = s3.getSignedUrl('getObject', {
       Bucket: process.env.AWS_S3_BUCKET,
       Key: file.s3Key,
       Expires: 300
     });
 
-    res.json({ 
+    res.json({
       downloadUrl: url,
       filename: file.name,
-      mimetype: file.mimetype 
+      mimetype: file.mimetype
     });
   } catch (error) {
     console.error("Download error:", error);
@@ -316,9 +365,7 @@ router.get("/download/:fileId", async (req, res) => {
   }
 });
 
-
-
-// MY FILES
+// ─── MY FILES ─────────────────────────────────────────────────────────────────
 router.get("/myfiles", async (req, res) => {
   const email = req.user.email;
   try {
@@ -333,8 +380,7 @@ router.get("/myfiles", async (req, res) => {
   }
 });
 
-// SHARED FILES
-// SHARED FILES
+// ─── SHARED FILES ─────────────────────────────────────────────────────────────
 router.get("/shared", async (req, res) => {
   const email = req.user.email;
   try {
@@ -346,12 +392,10 @@ router.get("/shared", async (req, res) => {
       .populate("fileId", "name mimetype");
 
     const now = new Date();
-
     const sharedFiles = accesses
-      // ✅ Filter out expired access records
       .filter((a) => {
-        if (!a.fileId) return false; // file deleted
-        if (a.expiryTime && new Date(a.expiryTime) < now) return false; // expired
+        if (!a.fileId) return false;
+        if (a.expiryTime && new Date(a.expiryTime) < now) return false;
         return true;
       })
       .map((a) => ({
@@ -368,8 +412,7 @@ router.get("/shared", async (req, res) => {
   }
 });
 
-
-// GRANTED ACCESS — files I shared with others
+// ─── GRANTED ACCESS ───────────────────────────────────────────────────────────
 router.get("/granted", async (req, res) => {
   const email = req.user.email;
   try {
@@ -381,7 +424,6 @@ router.get("/granted", async (req, res) => {
       .populate("fileId", "name mimetype");
 
     const now = new Date();
-
     const granted = accesses
       .filter((a) => a.fileId)
       .map((a) => {
@@ -428,8 +470,7 @@ router.get("/granted", async (req, res) => {
   }
 });
 
-
-// UPDATE EXPIRY
+// ─── UPDATE EXPIRY ────────────────────────────────────────────────────────────
 router.post("/update-expiry", async (req, res) => {
   const { accessId, expiryTime } = req.body;
   const fromEmail = req.user.email;
@@ -446,11 +487,9 @@ router.post("/update-expiry", async (req, res) => {
     if (String(access.fromId) !== String(fromUser._id))
       return res.status(403).json({ error: "You did not grant this access" });
 
-    // ✅ Can only remove expiry if one already exists
     if (expiryTime === null && !access.expiryTime)
       return res.status(400).json({ error: "No expiry to remove" });
 
-    // ✅ New expiry must be in the future
     if (expiryTime && new Date(expiryTime) <= new Date())
       return res.status(400).json({ error: "New expiry must be in the future" });
 
@@ -458,6 +497,21 @@ router.post("/update-expiry", async (req, res) => {
     await access.save();
 
     await logAudit(fromUser._id, access.fileId, "expiry_updated", access.toId);
+
+    // ✅ SES: Notify recipient of expiry update
+    const toUser = await User.findById(access.toId);
+    const file = await File.findById(access.fileId);
+    if (toUser && file) {
+      const expiryNote = expiryTime
+        ? `New expiry: ${new Date(expiryTime).toLocaleString()}`
+        : "Expiry removed — your access is now permanent.";
+
+      await sendEmail({
+        to: toUser.email,
+        subject: `ConsentChain: Access Expiry Updated — ${file.name}`,
+        body: `Hi ${toUser.name || toUser.email},\n\n${fromUser.name || fromUser.email} has updated your access expiry for "${file.name}".\n${expiryNote}\n\n— ConsentChain`
+      });
+    }
 
     res.json({
       message: expiryTime ? "Expiry updated successfully" : "Expiry removed — access is now permanent",
@@ -469,9 +523,7 @@ router.post("/update-expiry", async (req, res) => {
   }
 });
 
-
-
-// ANALYTICS
+// ─── ANALYTICS ────────────────────────────────────────────────────────────────
 router.get("/analytics/summary", async (req, res) => {
   const email = req.user.email;
   try {
@@ -480,7 +532,6 @@ router.get("/analytics/summary", async (req, res) => {
 
     const files = await File.find({ ownerId: user._id }, "_id name");
     const fileIds = files.map((f) => f._id);
-
     const logs = await Log.find({ fileId: { $in: fileIds } }, "fileId timestamp");
 
     const fileDownloads = {};
@@ -489,7 +540,6 @@ router.get("/analytics/summary", async (req, res) => {
     for (const log of logs) {
       const fid = String(log.fileId);
       fileDownloads[fid] = (fileDownloads[fid] || 0) + 1;
-
       const date = log.timestamp.toISOString().slice(0, 10);
       dailyDownloads[date] = (dailyDownloads[date] || 0) + 1;
     }
