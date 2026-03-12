@@ -11,7 +11,6 @@ import {
 
 type AccessData = { fileName: string; downloadCount: number };
 type PatternData = { date: string; count: number };
-const apiUrl = import.meta.env.VITE_API_URL;
 const AnimatedNumber = ({ value }: { value: number }) => {
   const [display, setDisplay] = useState(0);
   useEffect(() => {
@@ -81,7 +80,6 @@ export default function Analytics() {
   const trend = accessPattern.length >= 2
     ? accessPattern.at(-1)!.count - accessPattern.at(-2)!.count : 0;
   const peakDay = [...accessPattern].sort((a, b) => b.count - a.count)[0];
-  const maxDownloads = Math.max(...mostAccessed.map((f) => f.downloadCount), 1);
 
   // Pie data with percent
   const pieData = mostAccessed.slice(0, 6).map((f) => ({

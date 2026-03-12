@@ -267,7 +267,7 @@ export default function GrantedAccess() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((item, i) => (
+                {filtered.map((item) => (
                   <tr
                     key={item.accessId}
                     className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors group"

@@ -173,8 +173,8 @@ export default function SharedFiles() {
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [justDownloaded, setJustDownloaded] = useState<string | null>(null);
+  const [downloadingId] = useState<string | null>(null);
+  const [justDownloaded] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
   const navigate = useNavigate();
 

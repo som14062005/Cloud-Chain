@@ -104,7 +104,7 @@ function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const [granting, setGranting] = useState(false);
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
-  const [dark, setDark] = useState(true);
+  const [dark] = useState(true);
   const navigate = useNavigate();
 
   // Apply theme to <html>
