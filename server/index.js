@@ -10,16 +10,11 @@ const mongoose = require("mongoose");
 const fileRoutes = require("./routes/files");
 const User = require("./models/User");
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+
 const app = express();
+app.set("trust proxy", 1);
 const PORT = 3000;
 // REPLACE app.listen:
-const options = {
-  key: fs.readFileSync(path.join(__dirname, 'certs/server.key')),
-  cert: fs.readFileSync(path.join(__dirname, 'certs/server.crt'))
-};
 
 // Connect to MongoDB
 mongoose
@@ -28,7 +23,8 @@ mongoose
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 app.use(cors({
-  origin: ['https://d2n2fkydruy84k.cloudfront.net', 'http://3.7.199.245', 'http://3.7.199.245.nip.io'],  
+  origin: ['https://d2n2fkydruy84k.cloudfront.net','http://3.7.199.245.nip.io'],  
+  // origin: ['https://d2n2fkydruy84k.cloudfront.net', 'http://3.7.199.245', 'http://3.7.199.245.nip.io'],  
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -138,8 +134,8 @@ app.get("/logout", (req, res, next) => {
 });
 
 app.use("/files", fileRoutes);
-https.createServer(options, app).listen(PORT, () => {
-  console.log(`HTTPS Server: https://3.7.199.245.nip.io:3000`);
+app.listen(PORT, () => {
+  console.log(`Server running at http://3.7.199.245.nip.io:${PORT}`);
 });
 
 module.exports = { verifyJWT };
