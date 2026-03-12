@@ -2,32 +2,16 @@ const express = require("express");
 const router = express.Router();
 const verifyJWT = require("../utils/auth");
 const AWS = require('aws-sdk');
-const { SESClient, SendEmailCommand } = require("@aws-sdk/client-ses");
 const { logAudit } = require("../utils/audit");
 const User = require("../models/User");
 const File = require("../models/File");
 const Access = require("../models/Access");
 const Log = require("../models/Log");
 const AuditLog = require("../models/AuditLog");
+const { sendEmail } = require("../utils/mailer");
 
 const s3 = new AWS.S3({ region: process.env.AWS_REGION });
-const ses = new SESClient({ region: process.env.AWS_REGION });
 
-// ─── SES Helper ───────────────────────────────────────────────────────────────
-const sendEmail = async ({ to, subject, body }) => {
-  try {
-    await ses.send(new SendEmailCommand({
-      Source: process.env.SES_FROM_EMAIL,
-      Destination: { ToAddresses: [to] },
-      Message: {
-        Subject: { Data: subject },
-        Body: { Text: { Data: body } }
-      }
-    }));
-  } catch (err) {
-    console.error("SES send error:", err.message); // Non-blocking
-  }
-};
 
 router.use(verifyJWT);
 
