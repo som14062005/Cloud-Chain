@@ -41,6 +41,8 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+console.log("BACKEND_URL =", process.env.BACKEND_URL);
+
 
 passport.use(
   new GoogleStrategy(
