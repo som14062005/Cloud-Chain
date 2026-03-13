@@ -545,5 +545,44 @@ router.get("/analytics/summary", async (req, res) => {
     res.status(500).json({ error: "Failed to get analytics" });
   }
 });
+// ─── CRON: EXPIRE ACCESSES (PUBLIC) ───────────────────────────────────────────
+router.post("/cron/expire", async (req, res) => {
+  try {
+    const expiredGrants = await Access.find({
+      expiryTime: { $lt: new Date(), $ne: null }
+    }).populate('fromId toId fileId');
+
+    let expiredCount = 0;
+
+    for (const grant of expiredGrants) {
+      const owner = grant.fromId;
+      const recipient = grant.toId;
+      const file = grant.fileId;
+
+      // ✅ Email OWNER
+      await sendEmail({
+        to: owner.email,
+        subject: `ConsentChain: Access Expired — ${file.name}`,
+        body: `Hi ${owner.name || owner.email},\n\nYour shared access to "${file.name}" for ${recipient.email} has expired.\n\n— ConsentChain`
+      });
+
+      // ✅ Email RECIPIENT  
+      await sendEmail({
+        to: recipient.email,
+        subject: `ConsentChain: Access Expired — ${file.name}`,
+        body: `Hi ${recipient.name || recipient.email},\n\nYour access to "${file.name}" (shared by ${owner.email}) has expired.\n\n— ConsentChain`
+      });
+
+      // Mark expired
+      grant.expiryTime = null;
+      await grant.save();
+      expiredCount++;
+    }
+
+    res.json({ expiredCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;
