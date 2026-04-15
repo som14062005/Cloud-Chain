@@ -9,6 +9,7 @@ import Login from "./pages/Login";
 import "./styles/background.css";
 import Analytics from "./pages/Analytics";
 import GrantedAccess from "./pages/GrantedAccess";
+import ViewLink from "./pages/ViewLink";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/grantaccess" element={<GrantedAccess />} />
+        <Route path="/view/:token" element={<ViewLink />} />
       </Routes>
     </Router>
   );

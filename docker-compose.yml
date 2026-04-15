@@ -1,0 +1,21 @@
+services:
+  backend:
+    build: ./server
+    container_name: consentchain-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./server/.env
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./consentchain-frontend
+      args:
+        VITE_API_URL: http://3.7.199.245:3000    # 👈 Add this
+    container_name: consentchain-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

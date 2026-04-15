@@ -23,7 +23,7 @@ mongoose
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 app.use(cors({
-  origin: ['https://d2n2fkydruy84k.cloudfront.net','http://3.7.199.245.nip.io'],  
+  origin: ['https://d2n2fkydruy84k.cloudfront.net','http://3.7.199.245.nip.io', 'http://localhost:5173' , 'http://localhost'],  
   // origin: ['https://d2n2fkydruy84k.cloudfront.net', 'http://3.7.199.245', 'http://3.7.199.245.nip.io'],  
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],

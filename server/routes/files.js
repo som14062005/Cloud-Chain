@@ -9,6 +9,8 @@ const Access = require("../models/Access");
 const Log = require("../models/Log");
 const AuditLog = require("../models/AuditLog");
 const { sendEmail } = require("../utils/mailer");
+const crypto = require("crypto");
+const ShareLink = require("../models/ShareLink");
 
 const s3 = new AWS.S3({ region: process.env.AWS_REGION });
 
@@ -51,6 +53,41 @@ router.post("/cron/expire", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ─── RESOLVE SHARE LINK (PUBLIC) ─────────────────────────────────────
+// ─── RESOLVE SHARE LINK (PUBLIC) ─────────────────────────────────────
+router.get("/link/:token", async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    const link = await ShareLink.findOne({ token }).populate("fileId");
+    if (!link || !link.fileId)
+      return res.status(404).json({ error: "Link not found" });
+
+    // ✅ Only check expiry — no usedCount check
+    if (new Date() > link.expiresAt)
+      return res.status(410).json({ error: "Link expired" });
+
+    const file = link.fileId;
+    const s3Url = s3.getSignedUrl("getObject", {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: file.s3Key,
+      Expires: 300,
+    });
+
+    res.json({
+      downloadUrl: s3Url,
+      filename: file.name,
+      mimetype: file.mimetype,
+      fileId: String(file._id),   // ✅ frontend uses this to verify access
+      expiresAt: link.expiresAt,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 router.use(verifyJWT);
 
@@ -582,6 +619,48 @@ router.get("/analytics/summary", async (req, res) => {
   } catch (err) {
     console.error("Analytics error:", err);
     res.status(500).json({ error: "Failed to get analytics" });
+  }
+});
+// ─── GENERATE SHARE LINK ─────────────────────────────────────────────
+router.post("/generate-link/:fileId", async (req, res) => {
+  const email = req.user.email;
+  const { fileId } = req.params;
+  const { expiresInMinutes = 525600, maxUses = 1 } = req.body; // optional
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const file = await File.findById(fileId);
+    if (!file) return res.status(404).json({ error: "File not found" });
+
+    if (String(file.ownerId) !== String(user._id))
+      return res.status(403).json({ error: "You do not own this file" });
+
+    const token = crypto.randomBytes(24).toString("hex");
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60_000);
+
+    const linkDoc = await ShareLink.create({
+      fileId: file._id,
+      ownerId: user._id,
+      token,
+      expiresAt,
+      maxUses,
+    });
+
+    const frontendBase = process.env.FRONTEND_URL || "http://localhost:5173";
+    const url = `${frontendBase}/view/${token}`;
+
+    res.json({
+      message: "Share link created",
+      token,
+      url,
+      expiresAt: linkDoc.expiresAt,
+      maxUses: linkDoc.maxUses,
+    });
+  } catch (err) {
+    console.error("Generate link error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
