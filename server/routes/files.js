@@ -29,7 +29,7 @@ router.post("/cron/expire", async (req, res) => {
       const file = grant.fileId;
  
       // ✅ Email OWNER
-      await sendEmail({
+      await sendEmail({ 
         to: owner.email,
         subject: `ConsentChain: Access Expired — ${file.name}`,
         body: `Hi ${owner.name || owner.email},\n\nYour shared access to "${file.name}" for ${recipient.email} has expired.\n\n— ConsentChain`
