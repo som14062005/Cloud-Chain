@@ -1,0 +1,13 @@
+.dockerignore
+.env
+.gitignore
+Dockerfile
+folder-structure.txt
+index.js
+package-lock.json
+package.json
+models\Access.js
+models\File.js
+models\User.js
+routes\files.js
+utils\auth.js

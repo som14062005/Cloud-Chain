@@ -13,6 +13,8 @@ interface PreviewFile {
   fileId: string;
   fileName: string;
   mimeType: string;
+  previewUrl: string;
+  downloadUrl: string;
 }
 
 interface ShareLinkResult {
@@ -20,12 +22,16 @@ interface ShareLinkResult {
   expiresAt: string;
 }
 
-// ── TEXT PREVIEW ──
 function TextPreview({ url }: { url: string }) {
   const [content, setContent] = useState("");
+
   useEffect(() => {
-    fetch(url).then((r) => r.text()).then(setContent).catch(() => setContent("Failed to load."));
+    fetch(url)
+      .then((r) => r.text())
+      .then(setContent)
+      .catch(() => setContent("Failed to load."));
   }, [url]);
+
   return (
     <pre className="w-full max-h-[60vh] overflow-auto font-mono text-xs text-white/60 bg-black/30 rounded-xl p-4 whitespace-pre-wrap">
       {content || "Loading..."}
@@ -33,23 +39,56 @@ function TextPreview({ url }: { url: string }) {
   );
 }
 
-// ── PREVIEW MODAL ──
-function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { onClose: () => void }) {
-  const token = getToken();
-  const previewUrl = `${import.meta.env.VITE_API_URL}/files/preview/${fileId}?token=${token}`;
-  const downloadUrl = `${import.meta.env.VITE_API_URL}/files/download/${fileId}?token=${token}`;
-
+function PreviewModal({
+  fileName,
+  mimeType,
+  previewUrl,
+  downloadUrl,
+  onClose,
+}: Omit<PreviewFile, "fileId"> & { onClose: () => void }) {
   const renderPreview = () => {
-    if (mimeType.startsWith("image/"))
-      return <img src={previewUrl} alt={fileName} className="max-w-full max-h-[65vh] rounded-xl object-contain mx-auto" />;
-    if (mimeType === "application/pdf")
-      return <iframe src={previewUrl} title={fileName} className="w-full h-[65vh] rounded-xl border-0" />;
-    if (mimeType.startsWith("video/"))
-      return <video controls className="w-full max-h-[65vh] rounded-xl"><source src={previewUrl} type={mimeType} /></video>;
-    if (mimeType.startsWith("audio/"))
-      return <div className="flex items-center justify-center py-12"><audio controls><source src={previewUrl} type={mimeType} /></audio></div>;
-    if (mimeType === "text/plain" || mimeType === "text/csv")
+    if (mimeType.startsWith("image/")) {
+      return (
+        <img
+          src={previewUrl}
+          alt={fileName}
+          className="max-w-full max-h-[65vh] rounded-xl object-contain mx-auto"
+        />
+      );
+    }
+
+    if (mimeType === "application/pdf") {
+      return (
+        <iframe
+          src={previewUrl}
+          title={fileName}
+          className="w-full h-[65vh] rounded-xl border-0"
+        />
+      );
+    }
+
+    if (mimeType.startsWith("video/")) {
+      return (
+        <video controls className="w-full max-h-[65vh] rounded-xl">
+          <source src={previewUrl} type={mimeType} />
+        </video>
+      );
+    }
+
+    if (mimeType.startsWith("audio/")) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <audio controls>
+            <source src={previewUrl} type={mimeType} />
+          </audio>
+        </div>
+      );
+    }
+
+    if (mimeType === "text/plain" || mimeType === "text/csv") {
       return <TextPreview url={previewUrl} />;
+    }
+
     return (
       <div className="flex flex-col items-center justify-center py-20 text-white/20">
         <div className="text-6xl mb-4">📄</div>
@@ -60,43 +99,72 @@ function PreviewModal({ fileId, fileName, mimeType, onClose }: PreviewFile & { o
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-[#0e0e0e] border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#0e0e0e] border border-white/10 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div>
-            <p className="text-[10px] font-mono text-indigo-400 uppercase tracking-widest mb-0.5">Preview</p>
-            <p className="font-clash font-medium text-white truncate max-w-sm">{fileName}</p>
+            <p className="text-[10px] font-mono text-indigo-400 uppercase tracking-widest mb-0.5">
+              Preview
+            </p>
+            <p className="font-clash font-medium text-white truncate max-w-sm">
+              {fileName}
+            </p>
           </div>
+
           <div className="flex items-center gap-2">
-            <a href={downloadUrl} target="_blank" rel="noreferrer"
-              className="text-xs font-mono px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition">
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-mono px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl hover:bg-indigo-500/20 transition"
+            >
               ⬇️ Download
             </a>
-            <button onClick={onClose}
-              className="text-xs font-mono px-4 py-2 bg-white/5 border border-white/10 text-white/40 rounded-xl hover:text-white hover:bg-white/10 transition">
+            <button
+              onClick={onClose}
+              className="text-xs font-mono px-4 py-2 bg-white/5 border border-white/10 text-white/40 rounded-xl hover:text-white hover:bg-white/10 transition"
+            >
               ✕ Close
             </button>
           </div>
         </div>
+
         <div className="p-6 bg-black/20">{renderPreview()}</div>
       </div>
     </div>
   );
 }
 
-// ── SHARE LINK MODAL ──
 function ShareLinkModal({ file, onClose }: { file: MyFile; onClose: () => void }) {
-  const token = getToken();
+  const navigate = useNavigate();
+  const apiUrl = import.meta.env.VITE_API_URL;
+
   const [expiresInMinutes, setExpiresInMinutes] = useState(60);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ShareLinkResult | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const getAuthHeaders = () => {
+    const token = getToken();
+    if (!token) {
+      removeToken();
+      navigate("/");
+      throw new Error("Unauthorized");
+    }
+    return { Authorization: `Bearer ${token}` };
+  };
+
   const expiryOptions = [
-    { label: "1 Hour",  value: 60 },
+    { label: "1 Hour", value: 60 },
     { label: "6 Hours", value: 360 },
-    { label: "24 Hours",value: 1440 },
-    { label: "7 Days",  value: 10080 },
+    { label: "24 Hours", value: 1440 },
+    { label: "7 Days", value: 10080 },
     { label: "30 Days", value: 43200 },
   ];
 
@@ -104,13 +172,23 @@ function ShareLinkModal({ file, onClose }: { file: MyFile; onClose: () => void }
     setLoading(true);
     try {
       const res = await axios.post(
-        `${import.meta.env.VITE_API_URL}/files/generate-link/${file._id}`,
+        `${apiUrl}/files/generate-link/${file._id}`,
         { expiresInMinutes },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: getAuthHeaders() }
       );
-      setResult({ url: res.data.url, expiresAt: res.data.expiresAt });
+
+      setResult({
+        url: res.data.url,
+        expiresAt: res.data.expiresAt,
+      });
     } catch (err) {
-      console.error("Generate link error:", err);
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        removeToken();
+        navigate("/");
+      } else {
+        console.error("Generate link error:", err);
+        alert("Failed to generate link");
+      }
     } finally {
       setLoading(false);
     }
@@ -124,20 +202,34 @@ function ShareLinkModal({ file, onClose }: { file: MyFile; onClose: () => void }
   };
 
   const formatExpiry = (iso: string) =>
-    new Date(iso).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+    new Date(iso).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-[#0e0e0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-
-        {/* Header */}
+    <div
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[#0e0e0e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
           <div>
-            <p className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest mb-0.5">Share Link</p>
-            <p className="font-clash font-medium text-white truncate max-w-xs">{file.name}</p>
+            <p className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest mb-0.5">
+              Share Link
+            </p>
+            <p className="font-clash font-medium text-white truncate max-w-xs">
+              {file.name}
+            </p>
           </div>
-          <button onClick={onClose}
-            className="text-xs font-mono px-4 py-2 bg-white/5 border border-white/10 text-white/40 rounded-xl hover:text-white hover:bg-white/10 transition">
+
+          <button
+            onClick={onClose}
+            className="text-xs font-mono px-4 py-2 bg-white/5 border border-white/10 text-white/40 rounded-xl hover:text-white hover:bg-white/10 transition"
+          >
             ✕ Close
           </button>
         </div>
@@ -145,47 +237,51 @@ function ShareLinkModal({ file, onClose }: { file: MyFile; onClose: () => void }
         <div className="p-6 space-y-5">
           {!result ? (
             <>
-              {/* Expiry selector */}
               <div>
-                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-3">Link Expires In</p>
+                <p className="text-[10px] font-mono text-white/30 uppercase tracking-widest mb-3">
+                  Link Expires In
+                </p>
                 <div className="grid grid-cols-3 gap-2">
                   {expiryOptions.map((opt) => (
-                    <button key={opt.value}
+                    <button
+                      key={opt.value}
                       onClick={() => setExpiresInMinutes(opt.value)}
-                      className={`font-mono text-xs py-2.5 rounded-xl border transition
-                        ${expiresInMinutes === opt.value
+                      className={`font-mono text-xs py-2.5 rounded-xl border transition ${
+                        expiresInMinutes === opt.value
                           ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
-                          : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"}`}>
+                          : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
                       {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Info */}
               <div className="px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl">
                 <p className="font-mono text-xs text-white/30 leading-relaxed">
-                  🔑 Only users with <span className="text-white/60">granted access</span> to this file can use this link.
-                  The link expires after the selected duration.
+                  🔑 Only users with <span className="text-white/60">granted access</span> to
+                  this file can use this link. The link expires after the selected duration.
                 </p>
               </div>
 
-              {/* Generate button */}
               <button
                 onClick={generateLink}
                 disabled={loading}
-                className="w-full font-mono py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl hover:bg-emerald-500/20 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                className="w-full font-mono py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl hover:bg-emerald-500/20 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
                 {loading ? (
                   <>
                     <div className="w-4 h-4 rounded-full border-2 border-emerald-400/20 border-t-emerald-400 animate-spin" />
                     Generating...
                   </>
-                ) : "🔗 Generate Link"}
+                ) : (
+                  "🔗 Generate Link"
+                )}
               </button>
             </>
           ) : (
             <>
-              {/* Success state */}
               <div className="text-center py-2">
                 <div className="text-4xl mb-3">🔗</div>
                 <p className="font-clash text-white font-medium mb-1">Link Generated!</p>
@@ -194,25 +290,25 @@ function ShareLinkModal({ file, onClose }: { file: MyFile; onClose: () => void }
                 </p>
               </div>
 
-              {/* Link box */}
               <div className="bg-black/30 border border-white/10 rounded-xl px-4 py-3">
                 <p className="font-mono text-xs text-white/50 truncate">{result.url}</p>
               </div>
 
-              {/* Copy button */}
               <button
                 onClick={copyLink}
-                className={`w-full font-mono py-3 rounded-xl border transition text-sm flex items-center justify-center gap-2
-                  ${copied
+                className={`w-full font-mono py-3 rounded-xl border transition text-sm flex items-center justify-center gap-2 ${
+                  copied
                     ? "bg-green-500/20 border-green-500/40 text-green-300"
-                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"}`}>
+                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20"
+                }`}
+              >
                 {copied ? "✅ Copied!" : "📋 Copy Link"}
               </button>
 
-              {/* Generate new */}
               <button
                 onClick={() => setResult(null)}
-                className="w-full font-mono py-2.5 bg-white/5 border border-white/10 text-white/30 rounded-xl hover:text-white hover:bg-white/10 transition text-xs">
+                className="w-full font-mono py-2.5 bg-white/5 border border-white/10 text-white/30 rounded-xl hover:text-white hover:bg-white/10 transition text-xs"
+              >
                 Generate New Link
               </button>
             </>
@@ -223,7 +319,6 @@ function ShareLinkModal({ file, onClose }: { file: MyFile; onClose: () => void }
   );
 }
 
-// ── MAIN PAGE ──
 export default function MyFiles() {
   const [myFiles, setMyFiles] = useState<MyFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,20 +327,42 @@ export default function MyFiles() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<PreviewFile | null>(null);
   const [shareFile, setShareFile] = useState<MyFile | null>(null);
+
   const navigate = useNavigate();
+  const apiUrl = import.meta.env.VITE_API_URL;
+
+  const getAuthHeaders = () => {
+    const token = getToken();
+    if (!token) {
+      removeToken();
+      navigate("/");
+      throw new Error("Unauthorized");
+    }
+    return { Authorization: `Bearer ${token}` };
+  };
+
+  const fetchMyFiles = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${apiUrl}/files/myfiles`, {
+        headers: getAuthHeaders(),
+      });
+
+      setMyFiles(res.data.files || []);
+      setTimeout(() => setMounted(true), 80);
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        removeToken();
+        navigate("/");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) { removeToken(); navigate("/"); return; }
-    axios.get(`${import.meta.env.VITE_API_URL}/files/myfiles`, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => {
-      setMyFiles(res.data.files);
-      setTimeout(() => setMounted(true), 80);
-    }).catch((err) => {
-      if (err.response?.status === 401) { removeToken(); navigate("/"); }
-    }).finally(() => setLoading(false));
-  }, [navigate]);
+    fetchMyFiles();
+  }, []);
 
   const filtered = myFiles.filter((f) =>
     f.name.toLowerCase().includes(search.toLowerCase())
@@ -258,37 +375,37 @@ export default function MyFiles() {
 
   const getExtColor = (ext: string) => {
     const map: Record<string, string> = {
-      PDF:  "bg-red-400/10 text-red-400 border-red-400/20",
-      PNG:  "bg-blue-400/10 text-blue-400 border-blue-400/20",
-      JPG:  "bg-blue-400/10 text-blue-400 border-blue-400/20",
+      PDF: "bg-red-400/10 text-red-400 border-red-400/20",
+      PNG: "bg-blue-400/10 text-blue-400 border-blue-400/20",
+      JPG: "bg-blue-400/10 text-blue-400 border-blue-400/20",
       JPEG: "bg-blue-400/10 text-blue-400 border-blue-400/20",
       DOCX: "bg-indigo-400/10 text-indigo-400 border-indigo-400/20",
-      DOC:  "bg-indigo-400/10 text-indigo-400 border-indigo-400/20",
+      DOC: "bg-indigo-400/10 text-indigo-400 border-indigo-400/20",
       XLSX: "bg-green-400/10 text-green-400 border-green-400/20",
-      CSV:  "bg-green-400/10 text-green-400 border-green-400/20",
-      TXT:  "bg-white/10 text-white/40 border-white/10",
-      MP4:  "bg-purple-400/10 text-purple-400 border-purple-400/20",
-      ZIP:  "bg-amber-400/10 text-amber-400 border-amber-400/20",
+      CSV: "bg-green-400/10 text-green-400 border-green-400/20",
+      TXT: "bg-white/10 text-white/40 border-white/10",
+      MP4: "bg-purple-400/10 text-purple-400 border-purple-400/20",
+      ZIP: "bg-amber-400/10 text-amber-400 border-amber-400/20",
       PPTX: "bg-orange-400/10 text-orange-400 border-orange-400/20",
-      MP3:  "bg-pink-400/10 text-pink-400 border-pink-400/20",
+      MP3: "bg-pink-400/10 text-pink-400 border-pink-400/20",
     };
     return map[ext] ?? "bg-white/5 text-white/30 border-white/5";
   };
 
   const getMimeFromExt = (ext: string): string => {
     const map: Record<string, string> = {
-      PDF:  "application/pdf",
-      PNG:  "image/png",
-      JPG:  "image/jpeg",
+      PDF: "application/pdf",
+      PNG: "image/png",
+      JPG: "image/jpeg",
       JPEG: "image/jpeg",
       WEBP: "image/webp",
-      GIF:  "image/gif",
-      MP4:  "video/mp4",
-      MOV:  "video/quicktime",
-      MP3:  "audio/mpeg",
-      WAV:  "audio/wav",
-      TXT:  "text/plain",
-      CSV:  "text/csv",
+      GIF: "image/gif",
+      MP4: "video/mp4",
+      MOV: "video/quicktime",
+      MP3: "audio/mpeg",
+      WAV: "audio/wav",
+      TXT: "text/plain",
+      CSV: "text/csv",
       DOCX: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       XLSX: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       PPTX: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -296,37 +413,77 @@ export default function MyFiles() {
     return map[ext] ?? "application/octet-stream";
   };
 
-  const openPreview = (file: MyFile) => {
-    const ext = getExt(file.name);
-    const mimeType = file.mimetype || getMimeFromExt(ext);
-    setPreviewFile({ fileId: file._id, fileName: file.name, mimeType });
+  const openPreview = async (file: MyFile) => {
+    try {
+      const ext = getExt(file.name);
+      const mimeType = file.mimetype || getMimeFromExt(ext);
+
+      const [previewRes, downloadRes] = await Promise.all([
+        axios.get(`${apiUrl}/files/preview/${file._id}`, {
+          headers: getAuthHeaders(),
+        }),
+        axios.get(`${apiUrl}/files/download/${file._id}`, {
+          headers: getAuthHeaders(),
+        }),
+      ]);
+
+      setPreviewFile({
+        fileId: file._id,
+        fileName: file.name,
+        mimeType,
+        previewUrl: previewRes.data.previewUrl,
+        downloadUrl: downloadRes.data.downloadUrl,
+      });
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        removeToken();
+        navigate("/");
+      } else {
+        alert("Failed to load preview");
+      }
+    }
   };
 
-  if (loading) return (
-    <div className="w-screen h-screen bg-[#080808] flex items-center justify-center">
-      <div className="relative w-16 h-16">
-        <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
-        <div className="absolute inset-3 rounded-full border-2 border-purple-500/20 border-t-purple-500 animate-spin [animation-duration:0.6s]" />
+  if (loading) {
+    return (
+      <div className="w-screen h-screen bg-[#080808] flex items-center justify-center">
+        <div className="relative w-16 h-16">
+          <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+          <div className="absolute inset-3 rounded-full border-2 border-purple-500/20 border-t-purple-500 animate-spin [animation-duration:0.6s]" />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="w-screen h-screen flex bg-[#080808] text-white overflow-hidden">
+      {previewFile && (
+        <PreviewModal
+          fileName={previewFile.fileName}
+          mimeType={previewFile.mimeType}
+          previewUrl={previewFile.previewUrl}
+          downloadUrl={previewFile.downloadUrl}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
 
-      {/* MODALS */}
-      {previewFile && <PreviewModal {...previewFile} onClose={() => setPreviewFile(null)} />}
       {shareFile && <ShareLinkModal file={shareFile} onClose={() => setShareFile(null)} />}
 
-      {/* ── SIDEBAR ── */}
       <div className="w-60 h-full bg-[#0c0c0c] border-r border-white/5 flex flex-col justify-between py-8 px-5 shrink-0">
         <div>
           <div className="flex items-center gap-2 mb-10">
-            <div className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center font-bold text-sm">CC</div>
-            <span className="font-clash text-lg font-medium">Consent<span className="text-white/40">Chain</span></span>
+            <div className="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center font-bold text-sm">
+              CC
+            </div>
+            <span className="font-clash text-lg font-medium">
+              Consent<span className="text-white/40">Chain</span>
+            </span>
           </div>
+
           <div className="flex flex-col gap-1">
-            <div className="text-[10px] text-white/20 font-mono uppercase tracking-widest mb-2 px-3">Navigation</div>
+            <div className="text-[10px] text-white/20 font-mono uppercase tracking-widest mb-2 px-3">
+              Navigation
+            </div>
             {[
               { label: "Dashboard", icon: "⬛", path: "/dashboard" },
               { label: "My Files", icon: "🗂️", path: "/myfiles", active: true },
@@ -335,33 +492,49 @@ export default function MyFiles() {
               { label: "Logs", icon: "📝", path: "/logs" },
               { label: "Granted Access", icon: "🔑", path: "/grantaccess" },
             ].map((item) => (
-              <span key={item.path} onClick={() => navigate(item.path)}
-                className={`font-mono text-[13px] px-3 py-2.5 rounded-xl cursor-pointer transition flex items-center gap-2
-                  ${"active" in item && item.active
+              <span
+                key={item.path}
+                onClick={() => navigate(item.path)}
+                className={`font-mono text-[13px] px-3 py-2.5 rounded-xl cursor-pointer transition flex items-center gap-2 ${
+                  "active" in item && item.active
                     ? "bg-white/10 text-white"
-                    : "text-gray-500 hover:text-white hover:bg-white/5"}`}>
+                    : "text-gray-500 hover:text-white hover:bg-white/5"
+                }`}
+              >
                 {item.icon} {item.label}
               </span>
             ))}
           </div>
         </div>
-        <span onClick={() => { removeToken(); navigate("/"); }}
-          className="font-mono text-[13px] text-red-500/80 hover:text-red-400 px-3 py-2.5 rounded-xl hover:bg-red-500/10 cursor-pointer transition flex items-center gap-2">
+
+        <span
+          onClick={() => {
+            removeToken();
+            navigate("/");
+          }}
+          className="font-mono text-[13px] text-red-500/80 hover:text-red-400 px-3 py-2.5 rounded-xl hover:bg-red-500/10 cursor-pointer transition flex items-center gap-2"
+        >
           🚪 Logout
         </span>
       </div>
 
-      {/* ── MAIN ── */}
       <div className="flex-1 overflow-y-auto px-10 py-10 space-y-8">
-
-        {/* HEADER */}
-        <div className={`transition-all duration-700 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+        <div
+          className={`transition-all duration-700 ${
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+          }`}
+        >
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-[10px] font-mono text-indigo-400 tracking-[0.3em] uppercase mb-1">Storage</p>
+              <p className="text-[10px] font-mono text-indigo-400 tracking-[0.3em] uppercase mb-1">
+                Storage
+              </p>
               <h1 className="text-4xl font-clash font-semibold tracking-tight">My Files</h1>
-              <p className="text-white/20 text-sm font-mono mt-1">Manage and track your uploaded files</p>
+              <p className="text-white/20 text-sm font-mono mt-1">
+                Manage and track your uploaded files
+              </p>
             </div>
+
             <div className="flex items-center gap-2 text-xs font-mono text-white/20 border border-white/5 px-3 py-1.5 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse inline-block" />
               {myFiles.length} file{myFiles.length !== 1 ? "s" : ""}
@@ -369,16 +542,44 @@ export default function MyFiles() {
           </div>
         </div>
 
-        {/* STAT CARDS */}
-        <div className={`grid grid-cols-3 gap-4 transition-all duration-700 delay-100 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+        <div
+          className={`grid grid-cols-3 gap-4 transition-all duration-700 delay-100 ${
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+          }`}
+        >
           {[
-            { label: "Total Files", value: myFiles.length, icon: "🗂️", color: "text-indigo-400", border: "border-indigo-400/10", bg: "bg-indigo-400/5" },
-            { label: "File Types", value: new Set(myFiles.map((f) => getExt(f.name))).size, icon: "🏷️", color: "text-purple-400", border: "border-purple-400/10", bg: "bg-purple-400/5" },
-            { label: "Showing", value: filtered.length, icon: "🔍", color: "text-blue-400", border: "border-blue-400/10", bg: "bg-blue-400/5" },
+            {
+              label: "Total Files",
+              value: myFiles.length,
+              icon: "🗂️",
+              color: "text-indigo-400",
+              border: "border-indigo-400/10",
+              bg: "bg-indigo-400/5",
+            },
+            {
+              label: "File Types",
+              value: new Set(myFiles.map((f) => getExt(f.name))).size,
+              icon: "🏷️",
+              color: "text-purple-400",
+              border: "border-purple-400/10",
+              bg: "bg-purple-400/5",
+            },
+            {
+              label: "Showing",
+              value: filtered.length,
+              icon: "🔍",
+              color: "text-blue-400",
+              border: "border-blue-400/10",
+              bg: "bg-blue-400/5",
+            },
           ].map((s, i) => (
-            <div key={s.label}
+            <div
+              key={s.label}
               style={{ transitionDelay: `${120 + i * 60}ms` }}
-              className={`border ${s.border} ${s.bg} rounded-2xl p-5 transition-all duration-700 ${mounted ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}>
+              className={`border ${s.border} ${s.bg} rounded-2xl p-5 transition-all duration-700 ${
+                mounted ? "opacity-100 scale-100" : "opacity-0 scale-95"
+              }`}
+            >
               <div className="text-2xl mb-3">{s.icon}</div>
               <div className={`text-3xl font-clash font-bold ${s.color}`}>{s.value}</div>
               <div className="text-white/30 text-xs font-mono mt-1">{s.label}</div>
@@ -386,24 +587,36 @@ export default function MyFiles() {
           ))}
         </div>
 
-        {/* SEARCH */}
-        <div className={`transition-all duration-700 delay-200 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+        <div
+          className={`transition-all duration-700 delay-200 ${
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+          }`}
+        >
           <div className="relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20">🔍</span>
-            <input type="text" placeholder="Search files by name…" value={search}
+            <input
+              type="text"
+              placeholder="Search files by name…"
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#0e0e0e] border border-white/5 rounded-xl pl-10 pr-4 py-3 text-sm font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-indigo-500/40 transition" />
+              className="w-full bg-[#0e0e0e] border border-white/5 rounded-xl pl-10 pr-4 py-3 text-sm font-mono text-white/70 placeholder-white/20 focus:outline-none focus:border-indigo-500/40 transition"
+            />
             {search && (
-              <button onClick={() => setSearch("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 text-xs font-mono transition">
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/50 text-xs font-mono transition"
+              >
                 ✕ Clear
               </button>
             )}
           </div>
         </div>
 
-        {/* FILE LIST */}
-        <div className={`transition-all duration-700 delay-300 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+        <div
+          className={`transition-all duration-700 delay-300 ${
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+          }`}
+        >
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-white/20">
               <div className="text-6xl mb-4">🗂️</div>
@@ -411,8 +624,10 @@ export default function MyFiles() {
                 {search ? "No files match your search" : "No files uploaded yet"}
               </p>
               {!search && (
-                <button onClick={() => navigate("/dashboard")}
-                  className="mt-4 text-xs font-mono px-4 py-2 border border-white/10 rounded-full hover:border-white/20 hover:text-white/50 transition">
+                <button
+                  onClick={() => navigate("/dashboard")}
+                  className="mt-4 text-xs font-mono px-4 py-2 border border-white/10 rounded-full hover:border-white/20 hover:text-white/50 transition"
+                >
                   Go to Dashboard to upload
                 </button>
               )}
@@ -425,25 +640,34 @@ export default function MyFiles() {
                 const isHovered = hoveredId === file._id;
 
                 return (
-                  <div key={file._id}
+                  <div
+                    key={file._id}
                     onMouseEnter={() => setHoveredId(file._id)}
                     onMouseLeave={() => setHoveredId(null)}
                     style={{ transitionDelay: `${i * 35}ms` }}
                     className={`group flex items-center gap-5 bg-[#0e0e0e] border rounded-2xl px-6 py-4 transition-all duration-300 cursor-default
-                      ${isHovered ? "border-indigo-500/25 bg-indigo-500/5 shadow-lg shadow-indigo-500/5" : "border-white/5"}
-                      ${mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}>
-
-                    {/* File icon */}
-                    <div className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all duration-300 ${extColor}`}>
+                      ${
+                        isHovered
+                          ? "border-indigo-500/25 bg-indigo-500/5 shadow-lg shadow-indigo-500/5"
+                          : "border-white/5"
+                      }
+                      ${mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}
+                  >
+                    <div
+                      className={`w-11 h-11 rounded-xl border flex items-center justify-center shrink-0 transition-all duration-300 ${extColor}`}
+                    >
                       <span className="text-[9px] font-mono font-bold">{ext.slice(0, 4)}</span>
                     </div>
 
-                    {/* File info */}
                     <div className="flex-1 min-w-0">
                       <p className="font-mono text-sm text-white truncate">{file.name}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${extColor}`}>{ext}</span>
-                        <span className="text-[10px] font-mono text-white/20">ID: {file._id.slice(-8)}</span>
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${extColor}`}>
+                          {ext}
+                        </span>
+                        <span className="text-[10px] font-mono text-white/20">
+                          ID: {file._id.slice(-8)}
+                        </span>
                         {!file.mimetype && (
                           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full border border-amber-400/20 bg-amber-400/5 text-amber-400/60">
                             legacy upload
@@ -452,42 +676,54 @@ export default function MyFiles() {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className={`flex items-center gap-2 transition-all duration-300 ${isHovered ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"}`}>
-
-                      {/* PREVIEW */}
-                      <button onClick={() => openPreview(file)}
-                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/20 transition">
+                    <div
+                      className={`flex items-center gap-2 transition-all duration-300 ${
+                        isHovered ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"
+                      }`}
+                    >
+                      <button
+                        onClick={() => openPreview(file)}
+                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 hover:bg-purple-500/20 transition"
+                      >
                         👁️ Preview
                       </button>
 
-                      {/* SHARE LINK ✅ NEW */}
-                      <button onClick={() => setShareFile(file)}
-                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 hover:bg-emerald-500/20 transition">
+                      <button
+                        onClick={() => setShareFile(file)}
+                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 hover:bg-emerald-500/20 transition"
+                      >
                         🔗 Share
                       </button>
 
-                      {/* LOGS */}
-                      <button onClick={() => navigate(`/logs/${file._id}`)}
-                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white/50 hover:text-white hover:border-white/20 hover:bg-white/10 transition">
+                      <button
+                        onClick={() => navigate(`/logs/${file._id}`)}
+                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white/50 hover:text-white hover:border-white/20 hover:bg-white/10 transition"
+                      >
                         🪵 Logs
                       </button>
 
-                      {/* MANAGE */}
-                      <button onClick={() => navigate(`/logs/${file._id}`)}
-                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400 hover:bg-indigo-500/20 transition">
+                      <button
+                        onClick={() => navigate(`/logs/${file._id}`)}
+                        className="flex items-center gap-1.5 text-xs font-mono px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400 hover:bg-indigo-500/20 transition"
+                      >
                         ⚙️ Manage
                       </button>
                     </div>
 
-                    {/* Arrow */}
-                    <span className={`text-white/10 text-sm transition-all duration-300 shrink-0 ${isHovered ? "opacity-100 translate-x-0 text-white/30" : "opacity-0 -translate-x-2"}`}>→</span>
+                    <span
+                      className={`text-white/10 text-sm transition-all duration-300 shrink-0 ${
+                        isHovered ? "opacity-100 translate-x-0 text-white/30" : "opacity-0 -translate-x-2"
+                      }`}
+                    >
+                      →
+                    </span>
                   </div>
                 );
               })}
             </div>
           )}
         </div>
+
         <div className="h-4" />
       </div>
     </div>
